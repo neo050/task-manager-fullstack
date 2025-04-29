@@ -1,5 +1,4 @@
-
-// server/index.js  (ES Modules)
+// server/index.js  (ES modules)
 
 import express from 'express';
 import cors    from 'cors';
@@ -9,30 +8,33 @@ import { db }  from './db.js';
 
 dotenv.config();
 
-const app = express();
+export const app = express();          // expose for Supertest
 
-// ─────────────── Middlewares ───────────────
+// ────────── Middlewares ──────────
 app.use(cors());
 app.use(express.json());
 
-// ─────────────── Routes ───────────────
+// ───────────── Routes ────────────
 app.get('/api/health', (_, res) => res.json({ status: 'ok' }));
 app.use('/auth', authRouter);
 
-// ─────────────── Global Error-Handler ───────────────
-// * Must be placed AFTER all routes to catch their errors *
+// ─────── Global error-handler ───────
 app.use((err, req, res, _next) => {
   console.error('❌', err);
   const status = res.statusCode >= 400 ? res.statusCode : 500;
   res.status(status).json({ error: err.message || 'Server error' });
 });
 
-// ─────────────── Start the server only if DB is reachable ───────────────
+// ─────── Boot only when DB is ready ───────
 db.query('SELECT 1')
   .then(() => {
-    app.listen(3001, () => console.log('✅  API listening on 3001'));
+    if (process.env.NODE_ENV !== 'test') {
+      app.listen(3001, () => console.log('✅  API listening on 3001'));
+    }
   })
-  .catch(err => {
+  .catch((err) => {
     console.error('PG connection failed →', err);
-    process.exit(1);           // Exit so we don’t run without a DB
+    process.exit(1);
   });
+
+export default app;                     // Supertest imports this
