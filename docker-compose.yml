@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: task_pass
       POSTGRES_DB: task_db
     ports:
-      - "5432:5432"
+      - "5879:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./server/sql:/docker-entrypoint-initdb.d  
