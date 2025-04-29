@@ -3,10 +3,11 @@ import express  from 'express';
 import bcrypt   from 'bcrypt';
 import jwt      from 'jsonwebtoken';
 import { db }   from '../db.js';
+import { registerLimiter } from '../middlewares/ratelimit.js';
 
 const router = express.Router();
 
-router.post('/register', async (req, res, next) => {
+router.post('/register', registerLimiter, async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
