@@ -5,7 +5,7 @@ import cors    from 'cors';
 import dotenv  from 'dotenv';
 import authRouter from './routes/auth.js';
 import { db }  from './db.js';
-
+import { verifyToken } from './middlewares/auth.js';
 dotenv.config();
 
 export const app = express();          // expose for Supertest
@@ -36,5 +36,8 @@ db.query('SELECT 1')
     console.error('PG connection failed →', err);
     process.exit(1);
   });
+
+
+app.get('/api/protected', verifyToken, (_, res) => res.json({ ok: true }));
 
 export default app;                     // Supertest imports this
