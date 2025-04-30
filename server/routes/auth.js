@@ -34,4 +34,31 @@ router.post('/register', registerLimiter, async (req, res, next) => {
   }
 });
 
+
+router.post('/login', async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password)
+      return res.status(400).json({ error: 'Email and password are required' });
+
+    const { rows } = await db.query(
+      'SELECT id, password_hash FROM users WHERE email = $1',
+      [email]
+    );
+    if (!rows.length)
+      return res.status(401).json({ error: 'Invalid credentials' });
+
+    const match = await bcrypt.compare(password, rows[0].password_hash);
+    if (!match)
+      return res.status(401).json({ error: 'Invalid credentials' });
+
+    const token = jwt.sign({ id: rows[0].id }, process.env.JWT_SECRET, {
+      expiresIn: '2h',
+    });
+    res.status(200).json({ token });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;
