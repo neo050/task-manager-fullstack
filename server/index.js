@@ -6,6 +6,8 @@ import dotenv  from 'dotenv';
 import authRouter from './routes/auth.js';
 import { db }  from './db.js';
 import { verifyToken } from './middlewares/auth.js';
+import { registerLimiter } from './middlewares/ratelimit.js';
+
 dotenv.config();
 
 export const app = express();          // expose for Supertest
@@ -24,7 +26,7 @@ app.use((err, req, res, _next) => {
   const status = res.statusCode >= 400 ? res.statusCode : 500;
   res.status(status).json({ error: err.message || 'Server error' });
 });
-app.get('/api/protected', verifyToken, (_, res) => res.json({ ok: true }));
+app.get('/api/protected', registerLimiter,verifyToken, (_, res) => res.json({ ok: true }));
 
 // ─────── Boot only when DB is ready ───────
 db.query('SELECT 1')
