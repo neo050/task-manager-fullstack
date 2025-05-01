@@ -4,7 +4,6 @@ import { verifyToken } from '../middlewares/auth.js';
 import { registerLimiter } from '../middlewares/ratelimit.js';
 
 const router = express.Router();
-app.use(registerLimiter);
 
 router.post('/', verifyToken, async (req, res, next) => {
   try {
