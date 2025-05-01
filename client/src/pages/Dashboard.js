@@ -1,32 +1,50 @@
-// client/src/pages/Dashboard.js
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 export default function Dashboard() {
   const [title, setTitle] = useState('');
-  const [due, setDue]     = useState('');
+  const [due,   setDue]   = useState('');
   const [tasks, setTasks] = useState([]);
-
   const token = localStorage.getItem('token');
 
-  const fetchTasks = () =>
-    fetch('/tasks', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json()).then(setTasks);
+  const fetchTasks = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res   = await fetch('/tasks', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed to load tasks');
+      const data  = await res.json();
+      setTasks(data);
+    } catch (err) {
+      console.error(err);
+    }
+  }, [token]);
 
-  useEffect(fetchTasks, []);
+  useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
   const addTask = async (e) => {
     e.preventDefault();
-    await fetch('/tasks', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ title, dueDate: due }),
-    });
-    setTitle(''); setDue('');
-    fetchTasks();
+    if (!token) return;
+    try {
+      const res = await fetch('/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title, dueDate: due }),
+      });
+      if (!res.ok) throw new Error('Failed to add task');
+      setTitle('');
+      setDue('');
+      fetchTasks();          // רענון הרשימה
+    } catch (err) {
+      console.error(err);
+    }
   };
+
+  /* JSX כרגיל */
+
 
   return (
     <div style={{maxWidth:600,margin:'2rem auto'}}>
