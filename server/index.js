@@ -15,7 +15,7 @@ export const app = express();          // expose for Supertest
 // ────────── Middlewares ──────────
 app.use(cors());
 app.use(express.json());
-
+app.use(registerLimiter);
 // ───────────── Routes ────────────
 app.get('/api/health', (_, res) => res.json({ status: 'ok' }));
 app.use('/auth', authRouter);
@@ -26,7 +26,7 @@ app.use((err, req, res, _next) => {
   const status = res.statusCode >= 400 ? res.statusCode : 500;
   res.status(status).json({ error: err.message || 'Server error' });
 });
-app.get('/api/protected', registerLimiter,verifyToken, (_, res) => res.json({ ok: true }));
+app.get('/api/protected', verifyToken, (_, res) => res.json({ ok: true }));
 
 // ─────── Boot only when DB is ready ───────
 db.query('SELECT 1')
