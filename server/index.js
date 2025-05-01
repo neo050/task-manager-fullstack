@@ -7,7 +7,7 @@ import authRouter from './routes/auth.js';
 import { db }  from './db.js';
 import { verifyToken } from './middlewares/auth.js';
 import { registerLimiter } from './middlewares/ratelimit.js';
-
+import tasksRouter from './routes/tasks.js';
 dotenv.config();
 
 export const app = express();          // expose for Supertest
@@ -19,6 +19,7 @@ app.use(registerLimiter);
 // ───────────── Routes ────────────
 app.get('/api/health', (_, res) => res.json({ status: 'ok' }));
 app.use('/auth', authRouter);
+app.use('/tasks', tasksRouter);
 
 // ─────── Global error-handler ───────
 app.use((err, req, res, _next) => {

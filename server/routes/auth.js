@@ -6,7 +6,7 @@ import { db }   from '../db.js';
 import { registerLimiter } from '../middlewares/ratelimit.js';
 
 const router = express.Router();
-app.use(registerLimiter);
+router.use(registerLimiter);
 router.post('/register', async (req, res, next) => {
   try {
     const { email, password } = req.body;
