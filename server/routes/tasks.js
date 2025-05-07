@@ -8,10 +8,12 @@ const router = express.Router();
 router.post('/', verifyToken, async (req, res, next) => {
   try {
     const { title, dueDate } = req.body;
+    const date = dueDate ? dueDate : null;
+
     const { rows } = await db.query(
       `INSERT INTO tasks (user_id, title, due_date)
        VALUES ($1,$2,$3) RETURNING *`,
-      [req.userId, title, dueDate]
+      [req.userId, title, date]
     );
     res.status(201).json(rows[0]);
   } catch (err) { next(err); }
