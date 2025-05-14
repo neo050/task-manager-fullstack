@@ -1,14 +1,50 @@
 services:
   db:
     image: postgres:15
+    restart: unless-stopped
     environment:
       POSTGRES_USER: task_user
       POSTGRES_PASSWORD: task_pass
       POSTGRES_DB: task_db
-    ports:
-      - "5879:5432"
+    ports: ["5879:5432"]
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./server/sql:/docker-entrypoint-initdb.d  
+      - ./server/sql:/docker-entrypoint-initdb.d
+    # ① בריאות – pg_isready מחזיר 0 כשה‑DB מקבל חיבורים
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U task_user"]
+      interval: 5s
+      retries: 5
+      start_period: 5s
+
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    platform: linux/amd64        # נשאר כפי שהוא
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: task_user
+      PGPASSWORD: task_pass
+      PGDATABASE: task_db
+      JWT_SECRET: "${JWT_SECRET:-tmpsecret}"
+    ports: ["3001:3001"]
+    # ② רק כש‑db בריא
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    restart: unless-stopped
+    environment:
+      REACT_APP_API_URL: "http://localhost:3001"
+    ports: ["3000:80"]
+    depends_on: [api]
+
 volumes:
   db_data:
