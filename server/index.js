@@ -20,8 +20,8 @@ app.use(express.json());
 app.use(registerLimiter);
 // ───────────── Routes ────────────
 app.get('/api/health', (_, res) => res.json({ status: 'ok' }));
-app.use('/auth', authRouter);
-app.use('/tasks', tasksRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/tasks', tasksRouter);
 
 // ─────── Global error-handler ───────
 app.use((err, req, res, _next) => {

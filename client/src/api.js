@@ -1,6 +1,6 @@
 // api.js
 export const getTasks = async (token) => {
-    const res = await fetch('/tasks', {
+    const res = await fetch('/api/tasks', {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) throw new Error('Failed to load tasks');
@@ -8,7 +8,7 @@ export const getTasks = async (token) => {
   };
   
   export const createTask = async (token, body) => {
-    const res = await fetch('/tasks', {
+    const res = await fetch('/api/tasks', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
