@@ -1,13 +1,12 @@
-
-
 import { useState }   from 'react';
 import { useNavigate } from 'react-router-dom';
 
-export default function Login() {
+export default function Register() {
   // ── local component state ──
-  const [email,    setEmail] = useState('');
-  const [password, setPass]  = useState('');
-  const [error,    setError] = useState(null);
+  const [email,       setEmail]    = useState('');
+  const [password,    setPassword] = useState('');
+  const [confirm,     setConfirm]  = useState('');
+  const [error,       setError]    = useState(null);
 
   const navigate = useNavigate();
 
@@ -15,8 +14,14 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // simple client-side validation
+    if (password !== confirm) {
+      setError('Passwords do not match');
+      return;
+    }
+
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch('/api/auth/register', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ email, password }),
@@ -24,16 +29,11 @@ export default function Login() {
 
       if (!res.ok) {
         const { error } = await res.json();
-        throw new Error(error || 'Login failed');
+        throw new Error(error || 'Registration failed');
       }
 
-      const { token } = await res.json();
-
-      // persist JWT for future requests
-      localStorage.setItem('token', token);
-
-      // navigate to home/dashboard
-      navigate('/dashboard');
+      // on success, redirect to login
+      navigate('/login');
     } catch (err) {
       console.error(err);
       setError(err.message);
@@ -43,7 +43,7 @@ export default function Login() {
   // ── JSX ──
   return (
     <div style={{ maxWidth: 400, margin: '2rem auto' }}>
-      <h1>Login</h1>
+      <h1>Register</h1>
 
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
@@ -64,13 +64,24 @@ export default function Login() {
           <input
             type="password"
             value={password}
-            onChange={(e) => setPass(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
             required
           />
         </label>
         <br /><br />
 
-        <button type="submit">Log In</button>
+        <label>
+          Confirm Password<br />
+          <input
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+          />
+        </label>
+        <br /><br />
+
+        <button type="submit">Register</button>
       </form>
     </div>
   );

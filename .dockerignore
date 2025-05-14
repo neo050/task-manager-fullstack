@@ -1,0 +1,15 @@
+# התעלמות מכל node_modules
+**/node_modules
+
+# קבצי מטמון ובנייה
+*.log
+npm-debug.log*
+dist
+build
+coverage
+.playwright
+
+# סביבות עבודה
+.vscode
+.idea
+.DS_Store
