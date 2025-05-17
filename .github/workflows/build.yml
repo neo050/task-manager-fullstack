@@ -7,6 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
+  # ──────────────── Lint + Unit tests ────────────────
   build:
     runs-on: ubuntu-latest
     strategy:
@@ -19,15 +20,58 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
+          cache: npm
 
-      - name: Install deps (root + workspaces)
+      - name: Install dependencies (server + client)
         run: |
-          npm install --prefix server
-          npm install --prefix client
+          npm ci --prefix server
+          npm ci --prefix client
 
-      - name: Lint
+      - name: Lint (ESLint)
         run: npm run lint --prefix client
 
       - name: Unit tests (Jest)
         run: npm run test:api --prefix server
+
+  # ──────────────── End-to-End tests ────────────────
+  e2e:
+    runs-on: ubuntu-latest
+    needs: build                # ירוץ רק אם build הצליח
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --prefix server
+          npm ci --prefix client
+          npx playwright install --with-deps
+
+      # Docker CLI ו-docker-compose כבר מותקנים על runner
+      - name: Start stack with Docker Compose
+        run: docker compose up --build -d
+
+      - name: Wait for API health
+        run: |
+          for i in {1..15}; do
+            if curl -s http://localhost:3000/api/health | grep -q '"ok"'; then
+              echo "API is up ✅"; exit 0;
+            fi
+            echo "⏳ waiting ($i)…"; sleep 4;
+          done
+          echo "API did not respond in time" && exit 1
+
+      - name: Run Playwright tests
+        run: npm run test:e2e --prefix server
+
+      - name: Upload Playwright HTML report
+        if: always()                       # יועלה גם אם הטסטים נכשלים
+        uses: actions/upload-artifact@v3
+        with:
+          name: playwright-report
+          path: server/playwright-report/
