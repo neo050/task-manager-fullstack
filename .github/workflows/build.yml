@@ -1,33 +1,36 @@
 name: CI
+
 on:
   pull_request:
     branches: [ main ]
   push:
     branches: [ main ]
 
+# ───────────────────── Lint + Unit ─────────────────────
 jobs:
-  # ───────────────────── Lint + Unit ─────────────────────
   build:
     runs-on: ubuntu-latest
-    services:                      # 👈 NEW
-      pg:                          #   name is arbitrary (“pg”)
+
+    services:                    # PostgreSQL service for Jest
+      pg:
         image: postgres:15
         env:
           POSTGRES_USER:     task_user
           POSTGRES_PASSWORD: task_pass
           POSTGRES_DB:       task_db
         ports:
-          - 5432:5432         # 👈 host:container → deterministic
-        options: >-           #   basic health-check
+          - 5432:5432
+        options: >-
           --health-cmd="pg_isready -U task_user -d task_db"
           --health-interval 10s --health-timeout 5s --health-retries 5
 
-    env:                       # 👈 give every step the same creds/host
+    env:                          # ← used by Jest & psql init
       PGHOST:     localhost
       PGPORT:     5432
       PGUSER:     task_user
       PGPASSWORD: task_pass
       PGDATABASE: task_db
+      # JWT not needed here – Option B supplies it only when NODE_ENV=test
 
     strategy:
       matrix:
@@ -59,10 +62,13 @@ jobs:
       - name: Unit tests (Jest)
         run: npm run test:api --prefix server
 
-  # ───────────────────── End-to-End (Playwright) ─────────────────────
+# ───────────────────── End-to-End (Playwright) ─────────────────────
   e2e:
     runs-on: ubuntu-latest
-    needs: build               # only if build succeeded ✔️
+    needs: build
+
+    env:                    # 👈 passes a secret into docker-compose stack
+      JWT_SECRET: testsecret
 
     steps:
       - uses: actions/checkout@v4
@@ -73,7 +79,7 @@ jobs:
           cache: npm
           cache-dependency-path: |
             server/package-lock.json
-            client/package-lock.json   # ← removed stray Hebrew char
+            client/package-lock.json
 
       - name: Install deps
         run: |
