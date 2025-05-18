@@ -1,5 +1,4 @@
 name: CI
-
 on:
   pull_request:
     branches: [ main ]
@@ -7,17 +6,40 @@ on:
     branches: [ main ]
 
 jobs:
-  # ──────────────── Lint + Unit tests ────────────────
+  # ────────────────── Lint + Unit (Jest) ──────────────────
   build:
     runs-on: ubuntu-latest
+
+    # 👉 1 ― 🗄  Spin a disposable Postgres *inside* the job
+    services:
+      pg:
+        image: postgres:15
+        env:
+          POSTGRES_USER: task_user
+          POSTGRES_PASSWORD: task_pass
+          POSTGRES_DB: task_db
+        ports: [ '5432:5432' ]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    # 👉 2 ― Make the same vars visible to the Node process
+    env:
+      PGHOST:     localhost
+      PGUSER:     task_user
+      PGPASSWORD: task_pass
+      PGDATABASE: task_db
+
     strategy:
       matrix:
         node-version: [18.x, 20.x]
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
@@ -25,10 +47,15 @@ jobs:
             server/package-lock.json
             client/package-lock.json
 
-      - name: Install dependencies (server + client)
+      - name: Install deps
         run: |
           npm ci --prefix server
           npm ci --prefix client
+
+      # 👉 3 ― Run your SQL so tables exist before Jest
+      - name: Run migrations
+        run: |
+          psql -h localhost -U $PGUSER -d $PGDATABASE -f server/sql/init.sql
 
       - name: Lint (ESLint)
         run: npm run lint --prefix client
@@ -36,47 +63,44 @@ jobs:
       - name: Unit tests (Jest)
         run: npm run test:api --prefix server
 
-  # ──────────────── End-to-End tests ────────────────
+  # ───────────────────── End-to-End (Playwright) ─────────────────────
   e2e:
     runs-on: ubuntu-latest
-    needs: build                # ירוץ רק אם build הצליח
+    needs: build               # only if build succeeded ✔️
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node 20
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npmע
+          cache: npm
           cache-dependency-path: |
             server/package-lock.json
-            client/package-lock.json
+            client/package-lock.json   # ← removed stray Hebrew char
 
-      - name: Install dependencies
+      - name: Install deps
         run: |
           npm ci --prefix server
           npm ci --prefix client
           npx playwright install --with-deps
 
-      # Docker CLI ו-docker-compose כבר מותקנים על runner
-      - name: Start stack with Docker Compose
+      - name: Start stack (docker-compose)
         run: docker compose up --build -d
 
       - name: Wait for API health
         run: |
           for i in {1..15}; do
-            if curl -s http://localhost:3000/api/health | grep -q '"ok"'; then
-              echo "API is up ✅"; exit 0;
-            fi
-            echo "⏳ waiting ($i)…"; sleep 4;
+            curl -s http://localhost:3000/api/health | grep -q '"ok"' && exit 0
+            echo "⏳ waiting ($i)…"; sleep 4
           done
           echo "API did not respond in time" && exit 1
 
       - name: Run Playwright tests
         run: npm run test:e2e --prefix server
 
-      - name: Upload Playwright HTML report
-        if: always()                       # יועלה גם אם הטסטים נכשלים
+      - name: Publish Playwright report
+        if: always()
         uses: actions/upload-artifact@v3
         with:
           name: playwright-report
