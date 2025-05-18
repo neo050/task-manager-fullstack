@@ -4,6 +4,7 @@ import bcrypt   from 'bcrypt';
 import jwt      from 'jsonwebtoken';
 import { db }   from '../db.js';
 import { registerLimiter } from '../middlewares/ratelimit.js';
+import { JWT_SECRET } from '../config.js';
 
 const router = express.Router();
 router.use(registerLimiter);
@@ -21,8 +22,7 @@ router.post('/register', async (req, res, next) => {
       'INSERT INTO users (email, password_hash) VALUES ($1,$2) RETURNING id',
       [email, hash]
     );
-
-    const token = jwt.sign({ id: rows[0].id }, process.env.JWT_SECRET);
+    const token = jwt.sign({ id: rows[0].id }, JWT_SECRET);
     return res.status(201).json({ token });
 
   } catch (err) {
@@ -52,7 +52,7 @@ router.post('/login', async (req, res, next) => {
     if (!match)
       return res.status(401).json({ error: 'Invalid credentials' });
 
-    const token = jwt.sign({ id: rows[0].id }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ id: rows[0].id }, JWT_SECRET, {
       expiresIn: '2h',
     });
     res.status(200).json({ token });
