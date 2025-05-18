@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+# ───────────────────── Lint + Unit ─────────────────────
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    services:                    # PostgreSQL service for Jest
+      pg:
+        image: postgres:15
+        env:
+          POSTGRES_USER:     task_user
+          POSTGRES_PASSWORD: task_pass
+          POSTGRES_DB:       task_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U task_user -d task_db"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+
+    env:                          # ← used by Jest & psql init
+      PGHOST:     localhost
+      PGPORT:     5432
+      PGUSER:     task_user
+      PGPASSWORD: task_pass
+      PGDATABASE: task_db
+      # JWT not needed here – Option B supplies it only when NODE_ENV=test
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm ci --prefix server
+          npm ci --prefix client
+
+      - name: Run DB init script
+        run: psql -h $PGHOST -U $PGUSER -d $PGDATABASE -f server/sql/init.sql
+
+      - name: Lint (ESLint)
+        run: npm run lint --prefix client
+
+      - name: Unit tests (Jest)
+        run: npm run test:api --prefix server
+
+# ───────────────────── End-to-End (Playwright) ─────────────────────
+  e2e:
+    runs-on: ubuntu-latest
+    needs: build
+
+    env:                    # 👈 passes a secret into docker-compose stack
+      JWT_SECRET: testsecret
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+
+      - name: Install deps
+        run: |
+          npm ci --prefix server
+          npm ci --prefix client
+          npx playwright install --with-deps
+
+      - name: Start stack (docker-compose)
+        run: docker compose up --build -d
+
+      - name: Wait for API health
+        run: |
+          for i in {1..15}; do
+            curl -s http://localhost:3000/api/health | grep -q '"ok"' && exit 0
+            echo "⏳ waiting ($i)…"; sleep 4
+          done
+          echo "API did not respond in time" && exit 1
+
+      - name: Run Playwright tests
+        run: npm run test:e2e --prefix server
+
+      - name: Publish Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: server/playwright-report/
